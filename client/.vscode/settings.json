@@ -1,0 +1,13 @@
+// .vscode/settings.json
+{
+  // ① 저장 시 Prettier 포맷
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+
+  // ② 저장 시 ESLint 자동 고침
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "always"
+  },
+  // ESLint 9 Flat Config 사용 시 extension 옵션
+  "eslint.experimental.useFlatConfig": true
+}
