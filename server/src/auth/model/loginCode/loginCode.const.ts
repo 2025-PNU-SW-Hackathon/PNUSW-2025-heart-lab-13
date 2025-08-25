@@ -1,0 +1,2 @@
+export const LOGIN_CODE_EXPIRE_MINUTE = 5;
+export const LOGIN_CODE_EXPIRES_IN = LOGIN_CODE_EXPIRE_MINUTE * 60 * 1000; // 5 minutes

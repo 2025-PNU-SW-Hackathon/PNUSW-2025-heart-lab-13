@@ -1,0 +1,374 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  # test:
+  #   runs-on: ubuntu-latest
+  #   name: Run Tests
+
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+
+  #     - name: Setup Node.js
+  #       uses: actions/setup-node@v4
+  #       with:
+  #         node-version: ${{ env.NODE_VERSION }}
+  #         cache: 'npm'
+
+  #     - name: Install dependencies
+  #       run: npm ci
+
+  #     - name: Run linting
+  #       run: npm run lint
+
+  #     - name: Run tests
+  #       run: npm run test
+
+  #     - name: Run e2e tests
+  #       run: npm run test:e2e
+
+  build-stage:
+    runs-on: ubuntu-latest
+    # needs: test
+    environment: stage
+    name: Build Docker Image for Stage
+    if: github.ref == 'refs/heads/stage' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Docker image to ECR
+        run: |
+          ECR_REGISTRY="${{ steps.login-ecr.outputs.registry }}"
+          ECR_REPOSITORY="${{ secrets.ECR_REPOSITORY_NAME }}"
+          IMAGE_TAG="stage"
+          COMMIT_SHA="${{ github.sha }}"
+
+          # Build image with multiple tags
+          docker build -t ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG} \
+                       -t ${ECR_REGISTRY}/${ECR_REPOSITORY}:${COMMIT_SHA} .
+
+          # Push image with environment tag
+          docker push ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}
+
+          # Push image with commit SHA
+          docker push ${ECR_REGISTRY}/${ECR_REPOSITORY}:${COMMIT_SHA}
+
+    outputs:
+      environment: stage
+      image_tag: stage
+      image_uri: ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY_NAME }}:stage
+
+  build-production:
+    runs-on: ubuntu-latest
+    # needs: test
+    environment: production
+    name: Build Docker Image for Production
+    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Docker image to ECR
+        run: |
+          ECR_REGISTRY="${{ steps.login-ecr.outputs.registry }}"
+          ECR_REPOSITORY="${{ secrets.ECR_REPOSITORY_NAME }}"
+          IMAGE_TAG="production"
+          COMMIT_SHA="${{ github.sha }}"
+
+          # Build image with multiple tags
+          docker build -t ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG} \
+                       -t ${ECR_REGISTRY}/${ECR_REPOSITORY}:${COMMIT_SHA} \
+                       -t ${ECR_REGISTRY}/${ECR_REPOSITORY}:latest .
+
+          # Push image with environment tag
+          docker push ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}
+
+          # Push image with commit SHA
+          docker push ${ECR_REGISTRY}/${ECR_REPOSITORY}:${COMMIT_SHA}
+
+          # Push as latest for production
+          docker push ${ECR_REGISTRY}/${ECR_REPOSITORY}:latest
+
+    outputs:
+      environment: production
+      image_tag: production
+      image_uri: ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY_NAME }}:production
+
+  deploy-stage:
+    runs-on: ubuntu-latest
+    needs: [build-stage]
+    name: Deploy to Stage
+    if: github.ref == 'refs/heads/stage' && github.event_name == 'push'
+    environment: stage
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+
+      - name: Deploy with CodeDeploy
+        run: |
+          # ECR 로그인
+          aws ecr get-login-password --region ${{ secrets.AWS_DEFAULT_REGION }} | docker login --username AWS --password-stdin $(aws sts get-caller-identity --query Account --output text).dkr.ecr.${{ secrets.AWS_DEFAULT_REGION }}.amazonaws.com
+
+          ECR_REGISTRY="$(aws sts get-caller-identity --query Account --output text).dkr.ecr.${{ secrets.AWS_DEFAULT_REGION }}.amazonaws.com"
+          DOCKER_IMAGE="${ECR_REGISTRY}/${{ secrets.ECR_REPOSITORY_NAME }}:stage"
+
+          # 배포 정보를 담은 JSON 파일 생성
+          cat > deployment-info.json << EOF
+          {
+            "docker_image": "${DOCKER_IMAGE}",
+            "environment": "stage",
+            "commit_sha": "${{ github.sha }}",
+            "branch": "${{ github.ref_name }}",
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          EOF
+
+          # S3에 배포 정보 업로드
+          aws s3 cp deployment-info.json s3://${{ secrets.S3_DEPLOYMENT_BUCKET }}/moti-server/stage/deployment-info.json
+
+          # S3에서 가져올 수 있는 배포 번들 생성 (최소한의 파일들만)
+          mkdir -p deployment-bundle
+          cp -r scripts deployment-bundle/
+          cp -r nginx deployment-bundle/
+          cp appspec.yml deployment-bundle/
+          cp deployment-info.json deployment-bundle/
+          echo "${DOCKER_IMAGE}" > deployment-bundle/docker-image.txt
+
+          # 배포 번들을 tar로 압축하여 S3에 업로드
+          tar -czf deployment-bundle.tar.gz -C deployment-bundle .
+          BUNDLE_KEY="moti-server/stage/deployment-bundle-${{ github.sha }}.tar.gz"
+          aws s3 cp deployment-bundle.tar.gz s3://${{ secrets.S3_DEPLOYMENT_BUCKET }}/${BUNDLE_KEY}
+
+          deployment_id=$(aws deploy create-deployment \
+            --application-name ${{ secrets.CODEDEPLOY_APPLICATION_NAME }} \
+            --deployment-group-name ${{ secrets.DEPLOYMENT_GROUP_NAME }} \
+            --revision revisionType=S3,s3Location='{bucket=${{ secrets.S3_DEPLOYMENT_BUCKET }},key='${BUNDLE_KEY}',bundleType=tgz}' \
+            --deployment-config-name CodeDeployDefault.AllAtOnce \
+            --description "Stage deployment for commit ${{ github.sha }}" \
+            --file-exists-behavior OVERWRITE \
+            --query 'deploymentId' --output text)
+
+          echo "Deployment ID: $deployment_id"
+          echo "deployment_id=$deployment_id" >> $GITHUB_ENV
+
+          # 배포 완료 대기
+          aws deploy wait deployment-successful --deployment-id $deployment_id
+
+  deploy-production:
+    runs-on: ubuntu-latest
+    needs: [build-production]
+    name: Deploy to Production
+    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && github.event_name == 'push'
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+
+      - name: Deploy with CodeDeploy
+        run: |
+          # ECR 로그인
+          aws ecr get-login-password --region ${{ secrets.AWS_DEFAULT_REGION }} | docker login --username AWS --password-stdin $(aws sts get-caller-identity --query Account --output text).dkr.ecr.${{ secrets.AWS_DEFAULT_REGION }}.amazonaws.com
+
+          ECR_REGISTRY="$(aws sts get-caller-identity --query Account --output text).dkr.ecr.${{ secrets.AWS_DEFAULT_REGION }}.amazonaws.com"
+          DOCKER_IMAGE="${ECR_REGISTRY}/${{ secrets.ECR_REPOSITORY_NAME }}:production"
+
+          # 배포 정보를 담은 JSON 파일 생성
+          cat > deployment-info.json << EOF
+          {
+            "docker_image": "${DOCKER_IMAGE}",
+            "environment": "production",
+            "commit_sha": "${{ github.sha }}",
+            "branch": "${{ github.ref_name }}",
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          EOF
+
+          # S3에 배포 정보 업로드
+          aws s3 cp deployment-info.json s3://${{ secrets.S3_DEPLOYMENT_BUCKET }}/moti-server/production/deployment-info.json
+
+          # S3에서 가져올 수 있는 배포 번들 생성 (최소한의 파일들만)
+          mkdir -p deployment-bundle
+          cp -r scripts deployment-bundle/
+          cp -r nginx deployment-bundle/
+          cp appspec.yml deployment-bundle/
+          cp deployment-info.json deployment-bundle/
+          echo "${DOCKER_IMAGE}" > deployment-bundle/docker-image.txt
+
+          # 배포 번들을 tar로 압축하여 S3에 업로드
+          tar -czf deployment-bundle.tar.gz -C deployment-bundle .
+          BUNDLE_KEY="moti-server/production/deployment-bundle-${{ github.sha }}.tar.gz"
+          aws s3 cp deployment-bundle.tar.gz s3://${{ secrets.S3_DEPLOYMENT_BUCKET }}/${BUNDLE_KEY}
+
+          deployment_id=$(aws deploy create-deployment \
+            --application-name ${{ secrets.CODEDEPLOY_APPLICATION_NAME }} \
+            --deployment-group-name ${{ secrets.DEPLOYMENT_GROUP_NAME }} \
+            --revision revisionType=S3,s3Location='{bucket=${{ secrets.S3_DEPLOYMENT_BUCKET }},key='${BUNDLE_KEY}',bundleType=tgz}' \
+            --deployment-config-name CodeDeployDefault.AllAtOnce \
+            --description "Production deployment for commit ${{ github.sha }}" \
+            --file-exists-behavior OVERWRITE \
+            --query 'deploymentId' --output text)
+
+          echo "Deployment ID: $deployment_id"
+          echo "deployment_id=$deployment_id" >> $GITHUB_ENV
+
+          # 배포 완료 대기
+          aws deploy wait deployment-successful --deployment-id $deployment_id
+
+  notify:
+    runs-on: ubuntu-latest
+    needs: [deploy-stage, deploy-production]
+    name: Send Notification
+    env:
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }} # required
+    if: always() && (needs.deploy-stage.result != 'skipped' || needs.deploy-production.result != 'skipped')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Determine environment and extract commit info
+        id: env
+        run: |
+          if [[ "${{ needs.deploy-production.result }}" != "skipped" ]]; then
+            echo "environment=Production" >> $GITHUB_OUTPUT
+            echo "result=${{ needs.deploy-production.result }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ needs.deploy-stage.result }}" != "skipped" ]]; then
+            echo "environment=Stage" >> $GITHUB_OUTPUT
+            echo "result=${{ needs.deploy-stage.result }}" >> $GITHUB_OUTPUT
+          fi
+
+          # PR 정보 또는 커밋 메시지 추출
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            # PR인 경우 PR 제목 사용
+            CHANGE_DESCRIPTION="${{ github.event.pull_request.title }}"
+            PR_NUMBER="${{ github.event.pull_request.number }}"
+            CHANGE_LINK="https://github.com/${{ github.repository }}/pull/${PR_NUMBER}"
+          elif git log -1 --pretty=format:"%s" | grep -q "Merge pull request #"; then
+            # 머지 커밋인 경우 PR 정보 추출
+            COMMIT_MSG=$(git log -1 --pretty=format:"%s")
+            PR_NUMBER=$(echo "$COMMIT_MSG" | grep -o '#[0-9]\+' | head -1 | cut -c2-)
+            if [ -n "$PR_NUMBER" ]; then
+              # GitHub API를 통해 PR 제목 가져오기
+              PR_TITLE=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                "https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER" | \
+                jq -r '.title // empty' 2>/dev/null || echo "")
+              if [ -n "$PR_TITLE" ]; then
+                CHANGE_DESCRIPTION="$PR_TITLE"
+                CHANGE_LINK="https://github.com/${{ github.repository }}/pull/$PR_NUMBER"
+              else
+                CHANGE_DESCRIPTION="$COMMIT_MSG"
+                CHANGE_LINK="https://github.com/${{ github.repository }}/commit/${{ github.sha }}"
+              fi
+            else
+              CHANGE_DESCRIPTION="$COMMIT_MSG"
+              CHANGE_LINK="https://github.com/${{ github.repository }}/commit/${{ github.sha }}"
+            fi
+          else
+            # 일반 커밋인 경우
+            CHANGE_DESCRIPTION=$(git log -1 --pretty=format:"%s" | head -c 100)
+            CHANGE_LINK="https://github.com/${{ github.repository }}/commit/${{ github.sha }}"
+          fi
+
+          echo "change_description=${CHANGE_DESCRIPTION}" >> $GITHUB_OUTPUT
+          echo "change_link=${CHANGE_LINK}" >> $GITHUB_OUTPUT
+
+          # GitHub 액션 링크 생성
+          ACTION_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          echo "action_url=${ACTION_URL}" >> $GITHUB_OUTPUT
+
+          # GitHub 사용자명을 Slack 멘션으로 설정 (Slack에서 자동 매칭)
+          GITHUB_ACTOR="${{ github.actor }}"
+          SLACK_USER="@${GITHUB_ACTOR}"
+          echo "slack_user=${SLACK_USER}" >> $GITHUB_OUTPUT
+
+      - name: Send Slack notification on success
+        if: steps.env.outputs.result == 'success'
+        uses: 8398a7/action-slack@v3
+        with:
+          status: success
+          channel: '#제품-배포-알림'
+          text: |
+            🚀 **${{ steps.env.outputs.environment }} 배포 성공!**
+
+            📋 **변경사항:** <${{ steps.env.outputs.change_link }}|${{ steps.env.outputs.change_description }}>
+            🌿 **브랜치:** `${{ github.ref_name }}`
+            👤 **배포자:** ${{ steps.env.outputs.slack_user }}
+            🔗 **배포 로그:** <${{ steps.env.outputs.action_url }}|GitHub Actions에서 확인>
+
+            ✅ ${{ steps.env.outputs.environment }} 환경이 성공적으로 업데이트되었습니다!
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Send Slack notification on failure
+        if: steps.env.outputs.result == 'failure'
+        uses: 8398a7/action-slack@v3
+        with:
+          status: failure
+          channel: '#제품-배포-알림'
+          text: |
+            🚨 **${{ steps.env.outputs.environment }} 배포 실패!**
+
+            📋 **시도한 변경사항:** <${{ steps.env.outputs.change_link }}|${{ steps.env.outputs.change_description }}>
+            🌿 **브랜치:** `${{ github.ref_name }}`
+            👤 **배포자:** ${{ steps.env.outputs.slack_user }}
+            🔗 **실패 로그:** <${{ steps.env.outputs.action_url }}|GitHub Actions에서 확인>
+
+            ⚠️ **즉시 확인이 필요합니다!** ${{ steps.env.outputs.slack_user }}
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
