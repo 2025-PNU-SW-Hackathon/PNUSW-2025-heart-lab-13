@@ -37,6 +37,7 @@ export default function AlertModal({
   variant = 'info'
 }: AlertModalProps) {
   const styles = variantStyles[variant]
+
   return (
     <BaseModal isOpen={isOpen} onClose={onConfirm}>
       <div className="flex items-center gap-3 mb-4">

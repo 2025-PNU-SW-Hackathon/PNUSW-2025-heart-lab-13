@@ -1,7 +1,5 @@
 // src/components/editor/pr-chip.ts
-// PR 칩 렌더링/추출 (공통 상수/유틸은 chip-policy.ts에서 import)
-
-import { getPrIconSvg } from '../icons/pr-icon'
+import { getPrIconSvg } from '../icons/github-icon'
 import { CHIP, ChipState, stateToColor } from './policy/chips'
 
 export type PrChipData = {
@@ -24,53 +22,12 @@ export function escapeHtml(s: string) {
 export function makePrChipHTML(data: PrChipData) {
   const state = (data.state || '').toLowerCase()
   const color = stateToColor(state)
-  const badgeBg = 'var(--selected-color, #F3F4F6)' // 회색계 배경, 테마 변수 지원
+  const badgeBg = 'var(--selected-color, #F3F4F6)'
 
-  // 주: data-* 키는 CHIP.data.* 상수를 사용 (중복 제거)
-  return `
-    <a href="${escapeHtml(data.url)}" target="_blank" rel="noopener noreferrer"
-       contenteditable="false"
-       ${CHIP.data.type}="github_pr"
-       ${CHIP.data.number}="${escapeHtml(String(data.number))}"
-       ${CHIP.data.url}="${escapeHtml(data.url)}"
-       ${CHIP.data.state}="${escapeHtml(state)}"
-       ${CHIP.data.sourceId}="${escapeHtml(data.sourceId || String(data.number))}"
-       class="${CHIP.className}"
-       style="
-        display:inline-flex;align-items:center;gap:8px;
-        padding:2px 6px; border-radius:8px;
-        font-size:13px; line-height:1.45; text-decoration:none;
-        color:#111827; border:1px solid transparent;
-        transition:all .12s ease; cursor:pointer; vertical-align:middle;
-       "
-    >
-      <span style="display:inline-flex;align-items:center;gap:6px;">
-        <span style="display:inline-flex;align-items:center;">${getPrIconSvg(state, color, 16)}</span>
-        <strong style="font-weight:700; color:#6B7280;">#${escapeHtml(String(data.number))}</strong>
-        <span style="
-          font-weight:600;
-          white-space:nowrap; max-width:420px; overflow:hidden; text-overflow:ellipsis;
-          color:#111827;
-        ">
-          ${escapeHtml(data.title)}
-        </span>
-      </span>
-
-      <span data-badge
-            style="
-              display:inline-flex;align-items:center;gap:4px;
-              padding:2px 8px; border-radius:6px;
-              background:${badgeBg}; border:1px solid rgba(17,24,39,.06);
-              font-size:12px; line-height:1.35; color:${color};
-            ">
-        <span style="display:inline-flex;align-items:center;">${getPrIconSvg(state, color, 10)}</span>
-        ${state ? state[0].toUpperCase() + state.slice(1) : 'PR'}
-      </span>
-    </a>\u200B
-  `
+  // 중요: 템플릿 리터럴 내 줄바꿈은 공백으로 유지
+  return `<a href="${escapeHtml(data.url)}" target="_blank" rel="noopener noreferrer" contenteditable="false" ${CHIP.data.type}="github_pr" ${CHIP.data.number}="${escapeHtml(String(data.number))}" ${CHIP.data.url}="${escapeHtml(data.url)}" ${CHIP.data.state}="${escapeHtml(state)}" ${CHIP.data.sourceId}="${escapeHtml(data.sourceId || String(data.number))}" class="${CHIP.className}" style="display:inline-flex;align-items:center;gap:8px;padding:2px 6px;border-radius:8px;font-size:13px;line-height:1.45;text-decoration:none;color:#111827;border:1px solid transparent;transition:all .12s ease;cursor:pointer;vertical-align:middle;"><span style="display:inline-flex;align-items:center;gap:6px;"><span style="display:inline-flex;align-items:center;">${getPrIconSvg(state, color, 16)}</span> <strong style="font-weight:700;color:#6B7280;">#${escapeHtml(String(data.number))}</strong> <span style="font-weight:600;white-space:nowrap;max-width:420px;overflow:hidden;text-overflow:ellipsis;color:#111827;">${escapeHtml(data.title)}</span></span> <span data-badge style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:6px;background:${badgeBg};border:1px solid rgba(17,24,39,.06);font-size:12px;line-height:1.35;color:${color};"><span style="display:inline-flex;align-items:center;">${getPrIconSvg(state, color, 10)}</span> ${state ? state[0].toUpperCase() + state.slice(1) : 'PR'}</span></a>`
 }
 
-// HTML에서 PR 칩의 sourceId를 추출
 export function extractPrChipReferences(
   html: string
 ): Array<{ sourceType: string; sourceId: string }> {
@@ -80,7 +37,7 @@ export function extractPrChipReferences(
 
   const references: Array<{ sourceType: string; sourceId: string }> = []
   chips.forEach((chip) => {
-    const sourceId = chip.getAttribute(CHIP.data.sourceId) // 'data-source-id'
+    const sourceId = chip.getAttribute(CHIP.data.sourceId)
     if (sourceId) {
       references.push({
         sourceType: 'GITHUB_PULL_REQUEST',

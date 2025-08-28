@@ -8,8 +8,8 @@ import {
   // revalidatePullRequestDetail는 아래에서 직접 구현
 } from '@/src/lib/services/github-service'
 import type { GithubPullDetail } from '@/src/lib/api/github/types'
-import { ArrowStateIcon } from '@/src/components/icons/pr-icon'
-import PrIcon from '@/src/components/icons/pr-icon'
+import { ArrowStateIcon } from '@/src/components/icons/github-icon'
+import PrIcon from '@/src/components/icons/github-icon'
 
 interface PrDetailModalProps {
   isOpen: boolean
@@ -21,7 +21,7 @@ interface PrDetailModalProps {
   origin: { x: number; y: number } // ★ 모달 오픈 당시 포인터 위치
 }
 
-const MOVE_THRESHOLD_PX = 30 // ★ 모달 꺼지는 임계 거리(px)
+const MOVE_THRESHOLD_PX = 30 // 모달 꺼지는 임계 거리(px)
 
 // stale-while-revalidate을 위한 revalidate 함수
 const revalidatePullRequestDetail = async (

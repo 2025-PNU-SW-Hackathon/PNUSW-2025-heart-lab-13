@@ -66,7 +66,7 @@ export function YearMonthListbox({
   }
 
   return (
-    <div className="w-fill flex items-center justify-center" aria-label="연월 선택">
+    <div className="w-fill flex items-center " aria-label="연월 선택">
       {/* Year */}
       <div className="relative">
         <Listbox
@@ -76,12 +76,12 @@ export function YearMonthListbox({
         >
           {({ open }) => (
             <div className="relative">
-              <Listbox.Button className="no-underline flex items-center justify-between rounded border border-main-gray  px-[8px] py-2 text-sm w-[65px]">
+              <Listbox.Button className="no-underline flex items-center h-[45px] justify-between rounded-md rounded-tr-none rounded-br-none border border-main-gray  pl-3 py-2 text-sm w-[110px]">
                 {year ?? yearPlaceholder}
-                <ChevronUpDownIcon className="absolute right-[2px] h-4 w-4 flex-none" />
+                <ChevronUpDownIcon className="absolute right-[11px] h-4 w-4 flex-none" />
               </Listbox.Button>
               <Transition as={Fragment} show={open}>
-                <Listbox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md border-gray-300 bg-white shadow focus:outline-none">
+                <Listbox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md border border-gray-300 bg-white shadow-md focus:outline-none">
                   {YEARS.map((y) => {
                     const selectable = isYearSelectable(y)
                     return (
@@ -129,13 +129,13 @@ export function YearMonthListbox({
           disabled={disabled}
         >
           {({ open }) => (
-            <div className="relative">
-              <Listbox.Button className="no-underline flex items-center rounded border border-main-gray px-[8px] py-2 text-sm w-[65px]">
+            <div className="relative ">
+              <Listbox.Button className="no-underline flex items-center rounded-md rounded-tl-none rounded-bl-none border border-l-0 h-[45px] border-main-gray px-[8px] py-2 text-sm w-[110px]">
                 {month ?? monthPlaceholder}
-                <ChevronUpDownIcon className="absolute right-[2px] h-4 w-4 flex-none" />
+                <ChevronUpDownIcon className="absolute right-[11px] h-4 w-4 flex-none" />
               </Listbox.Button>
               <Transition as={Fragment} show={open}>
-                <Listbox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md border-gray-300 bg-white shadow focus:outline-none">
+                <Listbox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md border border-gray-300 bg-white shadow-md focus:outline-none">
                   {MONTHS.map((m) => {
                     const selectable = year ? isMonthSelectable(year, m) : true
                     return (

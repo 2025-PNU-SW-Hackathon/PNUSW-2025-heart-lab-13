@@ -5,11 +5,12 @@ import DOMPurify, { Config as DpConfig } from 'dompurify'
 export const SANITIZE_SAVE_CONFIG: DpConfig = {
   USE_PROFILES: { html: true },
   ALLOW_DATA_ATTR: true,
-  ADD_TAGS: ['svg', 'path'],
+  ADD_TAGS: ['svg', 'path', 'rect', 'g'],
   ADD_ATTR: [
     'style',
     'contenteditable',
     'data-type',
+    'data-id',
     'data-number',
     'data-url',
     'data-state',
@@ -24,7 +25,20 @@ export const SANITIZE_SAVE_CONFIG: DpConfig = {
     'fill-rule',
     'clip-rule',
     'd',
-    'xmlns'
+    'xmlns',
+    // SVG stroke/positional attributes
+    'stroke',
+    'stroke-width',
+    'stroke-linecap',
+    'stroke-linejoin',
+    'rx',
+    'x',
+    'y',
+    // img attributes
+    'src',
+    'alt',
+    'loading',
+    'decoding'
   ]
 }
 

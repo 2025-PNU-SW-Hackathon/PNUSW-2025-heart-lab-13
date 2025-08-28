@@ -8,6 +8,19 @@ import AlertModal from '@/src/components/modals/alert-modal'
 
 type Form = { email: string; username: string }
 
+const USER_NAME_MIN = 3
+const USER_NAME_MAX = 20
+
+function normalizeUserName(raw: string) {
+  return raw.trim() // 앞뒤 공백 제거
+}
+
+function isValidUserName(name: string) {
+  const trimmed = normalizeUserName(name)
+  const len = Array.from(trimmed).length // 유니코드 글자 단위
+  return len >= USER_NAME_MIN && len <= USER_NAME_MAX
+}
+
 // ─────────────────────────────────────────────
 // 1) 바깥(default) 컴포넌트는 Suspense 경계만 렌더
 // ─────────────────────────────────────────────
@@ -45,10 +58,14 @@ function VerifyEmailInner() {
     }
 
   const handleSubmit = async () => {
-    setLoading(true)
+    const normalizedUserName = normalizeUserName(form.username)
+    if (!isValidUserName(normalizedUserName)) {
+      setError(`닉네임은 ${USER_NAME_MIN}자 이상 ${USER_NAME_MAX}자 이하로 입력해주세요.`) //유저 이름 글자 수 처리
+      return
+    }
     setError(null)
     try {
-      await postSignUp(form, token)
+      await postSignUp({ ...form, username: normalizedUserName }, token)
       setShowSuccessModal(true)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : '회원가입 실패'
@@ -125,7 +142,7 @@ function VerifyEmailInner() {
       <AlertModal
         isOpen={showSuccessModal}
         title="회원가입 완료"
-        message="회원가입이 성공적으로 완료되었습니다.\n로그인 페이지로 이동합니다."
+        message={'회원가입이 성공적으로 완료되었습니다.\n로그인 페이지로 이동합니다.'}
         variant="success"
         onConfirm={handleSuccessConfirm}
       />

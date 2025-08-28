@@ -2,7 +2,8 @@ import { API_BASE } from '@/src/lib/api/_config'
 import type {
   PerformanceRequestBody,
   PerformanceResponseBody,
-  PerformanceListResponse
+  PerformanceListResponse,
+  EvaluationJSON
 } from './types'
 
 // PUT /performances
@@ -69,4 +70,19 @@ export async function deletePerformance(id: string): Promise<void> {
     const msg = await res.text()
     throw new Error(msg || `HTTP ${res.status}: 성과 삭제 실패`)
   }
+}
+
+export async function evaluatePerformance(id: string): Promise<EvaluationJSON> {
+  if (!id) throw new Error('성과 ID는 필수입니다.')
+  const res = await fetch(`${API_BASE}/performances/${encodeURIComponent(id)}/evaluate`, {
+    method: 'POST',
+    credentials: 'include'
+  })
+  if (!res.ok) {
+    const msg = await res.text()
+    console.log(msg)
+    throw new Error(msg || `HTTP ${res.status}: 성과 평가 실패`)
+  }
+  const data: EvaluationJSON = await res.json()
+  return data
 }

@@ -18,8 +18,6 @@ const ServicePanel = ({ service }: { service: ServiceKey }) => {
   if (service === 'Github') return <GithubPanel />
   if (service === 'Jira') return <JiraPanel />
   if (service === 'Notion') return <NotionPanel />
-
-  // Jira, Notion 등 필요시 분기 추가
   return null
 }
 
@@ -46,7 +44,6 @@ const Sidebar = () => {
     }
   }, [user])
 
-  // 컴포넌트 내부
   const handleConnect = async () => {
     if (isConnected(selected)) return
     try {
@@ -85,10 +82,11 @@ const Sidebar = () => {
       className="flex h-full flex-col bg-white border-x border-border-color"
       role="complementary"
       aria-label="서비스 연동 사이드바"
+      style={{ minWidth: '350px' }} // 최소 너비 설정으로 그리드 비율 유지
     >
       {/* 탭 버튼 - 고정 */}
       <div
-        className="flex gap-3 py-4 px-[38px] flex-shrink-0"
+        className="flex gap-3 pt-[45px] pb-[25px] px-[34px] flex-shrink-0"
         role="tablist"
         aria-label="서비스 선택"
       >
@@ -124,27 +122,29 @@ const Sidebar = () => {
       </div>
 
       {/* 본문 영역 - 스크롤 가능 */}
-      <div className="flex flex-col flex-1 overflow-y-auto">
+      <div className="flex flex-col flex-1 overflow-y-auto scrollbar-hide">
         {!isConnected(selected) ? (
-          <div className="px-6 py-6" aria-label="연동되지 않은 계정">
-            <p className="text-sm text-gray-500 text-center mt-12" aria-live="polite">
-              &ldquo;{selected}&rdquo; 계정이 아직 연동되지 않았습니다
-            </p>
-            <button
-              type="button"
-              onClick={handleConnect}
-              className="w-full rounded-sm border py-2 bg-white hover:bg-selected-color mt-4"
-              aria-label={`${selected} 연동하기`}
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') handleConnect()
-              }}
-            >
-              연동하기
-            </button>
+          <div className="px-[38px] py-6" aria-label="연동되지 않은 계정">
+            <div className="min-w-[280px]">
+              <p className="text-sm text-gray-500 text-center mt-12" aria-live="polite">
+                &ldquo;{selected}&rdquo; 계정이 아직 연동되지 않았습니다
+              </p>
+              <button
+                type="button"
+                onClick={handleConnect}
+                className="w-full rounded-sm border py-2 bg-white hover:bg-selected-color mt-4"
+                aria-label={`${selected} 연동하기`}
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') handleConnect()
+                }}
+              >
+                연동하기
+              </button>
+            </div>
           </div>
         ) : (
-          <div className="flex-1">
+          <div className="flex-1 min-w-[350px]">
             <ServicePanel service={selected} />
           </div>
         )}

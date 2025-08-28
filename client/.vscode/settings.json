@@ -8,6 +8,18 @@
   "editor.codeActionsOnSave": {
     "source.fixAll.eslint": "always"
   },
-  // ESLint 9 Flat Config 사용 시 extension 옵션
-  "eslint.experimental.useFlatConfig": true
+
+  // ③ ESLint Flat Config 사용 옵션
+  "eslint.experimental.useFlatConfig": true,
+
+  // ④ Tailwind IntelliSense를 TSX/JSX에도 적용
+  "tailwindCSS.includeLanguages": {
+    "typescriptreact": "html",
+    "javascriptreact": "html"
+  },
+
+  // ⑤ 문자열에서도 자동완성 제안 활성화 (className="..." 안에서)
+  "editor.quickSuggestions": {
+    "strings": true
+  }
 }

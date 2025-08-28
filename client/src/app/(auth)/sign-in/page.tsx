@@ -95,10 +95,6 @@ export default function SignInPage() {
         {error && <p className="mb-3 text-sm text-red-500">{error}</p>}
 
         <div className="flex justify-center gap-4 text-xs text-gray-500">
-          <Link href="/forgot" className="hover:underline">
-            비밀번호 찾기
-          </Link>
-          <span className="text-gray-300">|</span>
           <Link href="/sign-up" className="hover:underline">
             회원가입
           </Link>

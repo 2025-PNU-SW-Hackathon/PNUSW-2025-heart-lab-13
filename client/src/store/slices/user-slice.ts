@@ -18,6 +18,9 @@ export const createUserSlice: StateCreator<AppStore, [], [], UserSlice> = (set, 
 
   // serviceKey 받아서 연동 상태 tools에 있는지 확인하는 액션
   isConnected: (service) => {
+    // Jira/Notion은 항상 연동된 것으로 취급 (모킹/로컬 사용성 향상)
+    if (service === 'Jira' || service === 'Notion') return true
+
     const user = get().user
     if (!user) return false
     const map: Record<ServiceKey, ToolType> = {

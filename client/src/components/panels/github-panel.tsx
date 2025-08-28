@@ -12,7 +12,7 @@ import {
 import type { GithubOrg, GithubPull } from '@/src/lib/api/github/types'
 import PrDetailModal from '../modals/github-prdetail-modal'
 import { makePrChipHTML } from '@/src/components/editor/pr-chip'
-import PrIcon from '../icons/pr-icon'
+import PrIcon from '../icons/github-icon'
 import { YearMonthListbox } from '@/src/components/date/year-month-listbox'
 import { YearMonthValue } from '@/src/lib/utils/date'
 import { isEmptyYM, isFilledYM } from '@/src/lib/utils/date'
@@ -142,7 +142,41 @@ export default function GithubPanel() {
     }
   }
 
-  if (orgLoading) return <p className="mt-6 text-sm text-gray-500 text-center ">Org loading…</p>
+  // 로딩/에러/빈 상태일 때도 동일한 레이아웃 구조 유지
+  if (orgLoading) {
+    return (
+      <section className="w-full">
+        <div className="px-6 border-b border-main-gray mb-3 justify-center items-center flex flex-col">
+          {/* 로딩 중에도 드롭다운과 같은 구조 유지 */}
+          <div className="flex w-full items-center justify-between rounded border border-main-gray px-3 py-2 mb-3 text-sm">
+            <span className="pl-2 text-gray-500">Org loading…</span>
+            <ChevronUpDownIcon className="h-4 w-4 flex-none opacity-60" />
+          </div>
+
+          {/* 날짜 필터 영역도 유지 */}
+          <div className="w-full h-fit flex justify-between mb-3">
+            <div className="flex-1 rounded border border-main-gray px-3 py-2 text-sm text-gray-400">
+              From
+            </div>
+            <span className="mx-[6px] inline-flex select-none items-center text-[16px] leading-none text-[#888] font-normal">
+              ∼
+            </span>
+            <div className="flex-1 rounded border border-main-gray px-3 py-2 text-sm text-gray-400">
+              To
+            </div>
+          </div>
+
+          <button
+            className="mb-8 w-full rounded bg-gray-300 py-3 text-sm font-medium text-gray-500 cursor-not-allowed"
+            disabled
+          >
+            날짜 초기화
+          </button>
+        </div>
+      </section>
+    )
+  }
+
   if (orgError) return <p className="mt-6 text-sm text-red-600">{orgError}</p>
   if (!orgs.length)
     return <p className="mt-6 text-sm text-gray-500">속한 Organization이 없습니다.</p>
@@ -150,15 +184,15 @@ export default function GithubPanel() {
   return (
     <section className="w-full ">
       <div
-        className="px-[38px] border-b border-main-gray mb-3 justify-center items-center flex flex-col"
+        className="px-[34px]  border-b border-main-gray  justify-center items-center flex flex-col"
         aria-label="Org 선택 드롭다운 + filter"
       >
         {/* Organization 드롭다운: login(=slug) 사용 */}
         <Listbox value={orgSelected} onChange={setOrgSelected}>
           {({ open }) => (
             <div className="relative w-full">
-              <Listbox.Button className="flex w-full items-center justify-between rounded border border-main-gray px-1 py-2 mb-3 text-sm">
-                {orgSelected || 'Organization 선택'}
+              <Listbox.Button className="flex w-full items-center justify-between rounded border border-main-gray px-3 py-2 mb-3 text-sm ">
+                <span className="pl-2">{orgSelected || 'Organization 선택'}</span>
                 <ChevronUpDownIcon className="h-4 w-4 flex-none opacity-60" />
               </Listbox.Button>
               <Transition as={Fragment} show={open}>
@@ -182,27 +216,56 @@ export default function GithubPanel() {
             </div>
           )}
         </Listbox>
-        <div className="w-full flex justify-between mb-3" aria-label="기간 필터">
-          <YearMonthListbox value={fromYM} onChange={setFromYM} isFromField={true} toValue={toYM} />
-          <YearMonthListbox value={toYM} onChange={setToYM} isToField={true} fromValue={fromYM} />
-        </div>
-
-        <button
-          className="mb-8 w-full rounded bg-black py-3 text-sm font-medium text-white disabled:opacity-50"
-          disabled={!canResetDate}
-          onClick={() => {
-            // 둘 다 빈 객체로 초기화
-            setFromYM({})
-            setToYM({})
-          }}
-          aria-disabled={!canResetDate}
+        <div
+          className="w-full h-fit flex flex-col justify-between gap-[10px] mb-[37px]"
+          aria-label="기간 필터"
         >
-          날짜 초기화
-        </button>
+          <div className="flex">
+            <YearMonthListbox
+              value={fromYM}
+              onChange={setFromYM}
+              isFromField={true}
+              toValue={toYM}
+            />
+            <span
+              className="mx-[6px] inline-flex select-none items-center 
+             text-[16px] leading-none text-[#888] font-normal"
+            >
+              ∼
+            </span>
+          </div>
+          <div className="flex">
+            <YearMonthListbox value={toYM} onChange={setToYM} isToField={true} fromValue={fromYM} />
+            <button
+              className="w-full ml-[24px]  h-[45px] bg-black rounded-[5px] disabled:bg-gray-300"
+              disabled={!canResetDate}
+              onClick={() => {
+                // 둘 다 빈 객체로 초기화
+                setFromYM({})
+                setToYM({})
+              }}
+              aria-disabled={!canResetDate}
+            >
+              <span className="text-white text-sm font-normal">초기화</span>
+            </button>
+          </div>
+        </div>
       </div>
 
       <div aria-label="PR 리스트">
-        {prLoading && <p className="text-sm text-gray-500 text-center py-4">PR loading…</p>}
+        {prLoading && (
+          <div className="px-4">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="flex flex-row py-4 gap-5 border-b border-main-gray">
+                <div className="w-5 h-5 bg-gray-200 rounded animate-pulse"></div>
+                <div className="flex flex-col gap-2 flex-1">
+                  <div className="h-4 bg-gray-200 rounded animate-pulse w-2/3"></div>
+                  <div className="h-3 bg-gray-200 rounded animate-pulse w-1/3"></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
         {prError && <p className="text-sm text-red-600">{prError}</p>}
         {!prLoading && !prError && prs.length === 0 && (
           <p className="text-sm text-gray-500 py-4 text-center">최근 30일 PR이 없습니다.</p>
@@ -263,7 +326,7 @@ export default function GithubPanel() {
                   <div className="pt-1">
                     <PrIcon state={pr.state} size={20} />
                   </div>
-                  <div className="flex-column">
+                  <div className="flex-col">
                     <a
                       href={pr.url}
                       target="_blank"
