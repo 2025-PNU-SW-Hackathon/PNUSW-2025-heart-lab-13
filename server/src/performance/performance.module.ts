@@ -9,6 +9,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Performance } from 'src/performance/model/performance.entity';
 import { PerformanceReference } from 'src/performance/model/performanceReference.entity';
 import { GithubModule } from 'src/tools/github/github.module';
+import { PerformanceEvaluationService } from 'src/performance/ai/performance-evaluation.service';
+import { PerformanceEvaluationChain } from 'src/performance/ai/performance-evaluation.chain';
 
 @Module({
   imports: [
@@ -22,6 +24,8 @@ import { GithubModule } from 'src/tools/github/github.module';
     ReferenceBuilder,
     PerformanceFactory,
     PerformanceReferenceFactory,
+    PerformanceEvaluationService,
+    PerformanceEvaluationChain,
   ],
   exports: [TypeOrmModule],
 })

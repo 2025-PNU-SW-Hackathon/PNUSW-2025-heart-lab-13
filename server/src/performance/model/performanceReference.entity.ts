@@ -2,6 +2,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  JoinColumn,
   ManyToOne,
   PrimaryColumn,
 } from 'typeorm';
@@ -23,6 +24,7 @@ export class PerformanceReference {
   @ManyToOne(() => Performance, (performance) => performance.references, {
     onDelete: 'CASCADE',
   })
+  @JoinColumn({ name: 'performanceId' })
   performance: Performance;
 
   @Column({ type: 'varchar', length: 50 })

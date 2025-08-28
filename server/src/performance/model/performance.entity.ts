@@ -9,6 +9,7 @@ import {
   PrimaryColumn,
   OneToMany,
   ManyToOne,
+  JoinColumn,
 } from 'typeorm';
 
 export interface PerformanceConstructorParams {
@@ -34,6 +35,7 @@ export class Performance {
   @ManyToOne(() => User, (user) => user.performances, {
     onDelete: 'CASCADE',
   })
+  @JoinColumn({ name: 'userId' })
   user: User;
 
   @Column({ type: 'varchar', length: 120, nullable: true })

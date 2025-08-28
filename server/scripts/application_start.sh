@@ -101,7 +101,9 @@ create_env_file() {
     DATABASE_PASSWORD=$(echo "$secrets_json" | jq -r '.DATABASE_PASSWORD // empty')
     DATABASE_NAME=$(echo "$secrets_json" | jq -r '.DATABASE_NAME // empty')
     SENDGRID_API_KEY=$(echo "$secrets_json" | jq -r '.SENDGRID_API_KEY // empty')
-    
+    OPENAI_API_KEY=$(echo "$secrets_json" | jq -r '.OPENAI_API_KEY // empty')
+    ANTHROPIC_API_KEY=$(echo "$secrets_json" | jq -r '.ANTHROPIC_API_KEY // empty')
+
     # 환경별 설정값 결정 (수정 금지)
     if [ "$NODE_ENV" = "production" ]; then
         GITHUB_CALLBACK_URL="https://api.moti.work/auth/github/callback"
@@ -115,8 +117,12 @@ create_env_file() {
         PORT="3000"
         DOMAIN="https://api.moti.work"
         SERVICE_URL="https://app.moti.work"
-        CORS_ORIGIN="https://app.moti.work,http://localhost:3000"
+        CORS_ORIGIN="https://app.moti.work,http://localhost:3000,https://app.stage.moti.work"
         SENDGRID_FROM="admin@moti.work"
+        EVALUATION_MODEL="o1-mini"
+        ANALYSIS_MODEL="claude-3-7-sonnet-latest"
+        REPORT_MODEL="gpt-4o"
+        GITHUB_MCP_URL="https://api.githubcopilot.com/mcp/"
     elif [ "$NODE_ENV" = "stage" ]; then
         GITHUB_CALLBACK_URL="https://api.stage.moti.work/auth/github/callback"
         GITHUB_API_BASE_URL="https://api.github.com"
@@ -179,6 +185,20 @@ DATABASE_LOGGING=$DATABASE_LOGGING
 # Email Configuration (from Secrets Manager)
 SENDGRID_API_KEY=$SENDGRID_API_KEY
 SENDGRID_FROM=$SENDGRID_FROM
+
+# OpenAI
+OPENAI_API_KEY=$OPENAI_API_KEY
+
+# Anthropic
+ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY
+
+# AI Evaluation Models
+EVALUATION_MODEL=$EVALUATION_MODEL
+ANALYSIS_MODEL=$ANALYSIS_MODEL
+REPORT_MODEL=$REPORT_MODEL
+
+# GitHub MCP Server Configuration
+GITHUB_MCP_URL=$GITHUB_MCP_URL
 
 # Application Configuration
 DOCKER_IMAGE=$DOCKER_IMAGE

@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  Post,
   Put,
   Query,
   Req,
@@ -28,12 +29,17 @@ import {
   UpsertPerformanceRequestDto,
   UpsertPerformanceResponseDto,
 } from 'src/performance/interface/upsertPerformance.dto';
+import { EvaluatePerformanceResponseDto } from 'src/performance/interface/evaluatePerformance.dto';
 import { PerformanceService } from 'src/performance/performance.service';
+import { PerformanceEvaluationService } from 'src/performance/ai/performance-evaluation.service';
 
 @ApiTags('/performances')
 @Controller('performances')
 export class PerformanceController {
-  constructor(private readonly performanceService: PerformanceService) {}
+  constructor(
+    private readonly performanceService: PerformanceService,
+    private readonly performanceEvaluationService: PerformanceEvaluationService,
+  ) {}
 
   // upsert
   @UseGuards(JwtAuthGuard)
@@ -161,6 +167,37 @@ export class PerformanceController {
     await this.performanceService.deletePerformance({
       userId,
       id,
+    });
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary: 'AI 성과 평가',
+    description: '선택된 성과에 대해 AI가 종합적으로 평가합니다.',
+  })
+  @ApiOkResponse({
+    description: 'AI 성과 평가 성공',
+    type: EvaluatePerformanceResponseDto,
+  })
+  @ApiCookieAuth('w_auth')
+  @ApiBearerAuth()
+  @Post('/:id/evaluate')
+  async evaluatePerformance(
+    @Req() req: Request,
+    @Param('id') id: string,
+  ): Promise<EvaluatePerformanceResponseDto> {
+    const authUser = req.user as AuthUserDto;
+    const { userId } = authUser;
+
+    const evaluation =
+      await this.performanceEvaluationService.evaluatePerformance({
+        userId,
+        performanceId: id,
+      });
+
+    return new EvaluatePerformanceResponseDto({
+      performanceId: id,
+      evaluation,
     });
   }
 }

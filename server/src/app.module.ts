@@ -12,6 +12,7 @@ import jwtConfig from 'src/config/jwt.config';
 import passwordConfig from 'src/config/password.config';
 import databaseConfig from 'src/config/database.config';
 import appConfig from 'src/config/app.config';
+import aiConfig from 'src/config/ai.config';
 import { HelperModule } from 'src/helper/helper.module';
 import { PerformanceModule } from './performance/performance.module';
 import awsConfig from 'src/config/aws.config';
@@ -27,6 +28,7 @@ import sendGridConfig from 'src/config/sendGrid.config';
         passwordConfig,
         databaseConfig,
         appConfig,
+        aiConfig,
         awsConfig,
         sendGridConfig,
       ],
