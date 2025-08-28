@@ -58,9 +58,11 @@ Jira, GitHub, Notion 등 주요 협업툴과 연동하여 성과 데이터를 �
 1) 협업툴 연동 기능
 성과 작성 시 협업툴(깃허브) 연동 가능, 협업 정보 조회 시 기간 필터링 가능
 2) 성과 작성 기능
-사용자는 본인의 성과를 프로젝트 단위로 작성, 수정할 수 있음. (Drag & Drop 방식)
+사용자는 본인의 성과를 프로젝트 단위로 작성, 수정할 수 있음 (Drag & Drop 방식)
 3) 성과 불러오기 기능
 본인이 작성한 성과를 불러 올 수 있음. 조회 시 기간 필터링 가능
+4) AI 기반 성과 평가 기능
+본인이 작성한 성과와 근거자료를 바탕으로 AI가 성과평가 초안을 제공함
 
 
 ## 1.4. 기존 서비스 대비 차별성
@@ -132,34 +134,73 @@ flowchart TD
     PublicAPI --> DocsEndpoint[GET /docs<br/>Swagger UI]
     
     ProtectedAPI --> UserEndpoints[User Endpoints<br/>GET /users/me<br/>PUT /users/me]
-    ProtectedAPI --> PerformanceEndpoints[Performance Endpoints<br/>GET /performance<br/>POST /performance<br/>PUT /performance/:id]
+    ProtectedAPI --> PerformanceEndpoints[Performance Endpoints<br/>GET /performance<br/>POST /performance<br/>PUT /performance/:id<br/>POST /performance/:id/evaluate]
     
     %% Business Logic Layer
     AuthEndpoints --> AuthService[Auth Service<br/>• JWT Generation<br/>• Password Hashing<br/>• GitHub OAuth]
     UserEndpoints --> UserService[User Service<br/>• Profile Management<br/>• User CRUD]
     PerformanceEndpoints --> PerformanceService[Performance Service<br/>• Performance CRUD<br/>• Data Analytics]
+    PerformanceEndpoints --> EvaluationService[Performance Evaluation Service<br/>• AI-based Analysis<br/>• Multi-stage Evaluation]
+    
+    %% AI Evaluation Chain
+    EvaluationService --> EvaluationChain[Performance Evaluation Chain<br/>• GitHub MCP Integration<br/>• 3-Stage AI Analysis]
+    
+    %% AI Models (3-Stage Chain)
+    EvaluationChain --> Stage1[Stage 1: Analysis<br/>Claude 3.5 Sonnet<br/>• GitHub diff analysis<br/>• Code complexity assessment]
+    EvaluationChain --> Stage2[Stage 2: Evaluation<br/>OpenAI o1-mini<br/>• Quantitative scoring<br/>• Performance metrics]
+    EvaluationChain --> Stage3[Stage 3: Report<br/>GPT-4o<br/>• Summary generation<br/>• Recommendations]
+    
+    %% External AI Services
+    Stage1 --> ClaudeAPI[Anthropic Claude API]
+    Stage2 --> OpenAI_O1[OpenAI o1-mini API]
+    Stage3 --> OpenAI_GPT4[OpenAI GPT-4o API]
+    
+    %% MCP (Model Context Protocol) Integration
+    EvaluationChain --> MCPClient[MCP Client<br/>• GitHub server connection<br/>• Tool management]
+    MCPClient --> GitHubMCP[GitHub MCP Server<br/>• PR diff extraction<br/>• Code analysis tools]
     
     %% Data Layer
     AuthService --> Database[(MySQL Database)]
     UserService --> Database
     PerformanceService --> Database
+    EvaluationService --> Database
     
     %% External Services
     AuthService --> GitHub[GitHub OAuth API]
     AuthService --> SendGrid[SendGrid Email API]
+    GitHubMCP --> GitHubAPI[GitHub REST API<br/>• PR data<br/>• Diff information]
     
     %% Response Flow
     Database --> ResponseData[Response Data]
     GitHub --> ResponseData
     SendGrid --> ResponseData
+    ClaudeAPI --> AIResponse[AI Analysis Results]
+    OpenAI_O1 --> AIResponse
+    OpenAI_GPT4 --> AIResponse
+    GitHubAPI --> GitHubData[GitHub Data]
+    
     ResponseData --> JSONResponse[JSON Response]
+    AIResponse --> JSONResponse
+    GitHubData --> JSONResponse
     JSONResponse --> Client
     
     %% Error Handling
     Unauthorized --> ErrorResponse[Error Response]
     CORSError --> ErrorResponse
     ValidationError[Validation Error] --> ErrorResponse
+    AIError[AI Service Error] --> ErrorResponse
+    MCPError[MCP Connection Error] --> ErrorResponse
     ErrorResponse --> Client
+    
+    %% AI Evaluation Flow Detail
+    subgraph "AI Evaluation Process"
+        direction TB
+        EvalStart[Evaluation Request] --> DataCollection[Reference Data Collection<br/>• GitHub PR URLs<br/>• MCP tool preparation]
+        DataCollection --> AnalysisPhase[Analysis Phase<br/>Claude 3.5 Sonnet<br/>• Code diff analysis<br/>• Technical complexity]
+        AnalysisPhase --> EvaluationPhase[Evaluation Phase<br/>OpenAI o1-mini<br/>• Score calculation<br/>• Metrics assessment]
+        EvaluationPhase --> ReportPhase[Report Phase<br/>GPT-4o<br/>• Summary generation<br/>• Recommendations]
+        ReportPhase --> EvalResult[Evaluation Result<br/>• Overall score<br/>• Detailed breakdown<br/>• Improvement suggestions]
+    end
     
     %% Styling
     classDef client fill:#e3f2fd
@@ -169,13 +210,19 @@ flowchart TD
     classDef database fill:#fce4ec
     classDef external fill:#f1f8e9
     classDef error fill:#ffebee
+    classDef ai fill:#e8f5e8
+    classDef mcp fill:#f3e5ab
+    classDef evaluation fill:#e1f5fe
     
     class Client client
     class Server,Router,CORS,Auth,JWTCheck server
     class PublicAPI,ProtectedAPI,AuthEndpoints,UserEndpoints,PerformanceEndpoints,DocsEndpoint api
     class AuthService,UserService,PerformanceService service
+    class EvaluationService,EvaluationChain evaluation
+    class Stage1,Stage2,Stage3,ClaudeAPI,OpenAI_O1,OpenAI_GPT4,AIResponse,AIError ai
+    class MCPClient,GitHubMCP,MCPError mcp
     class Database database
-    class GitHub,SendGrid external
+    class GitHub,SendGrid,GitHubAPI,GitHubData external
     class CORSError,Unauthorized,ValidationError,ErrorResponse error
 ```
 
@@ -203,6 +250,12 @@ flowchart TD
 - 성과는 작성 중간중간 자동 저장되면 최종 저장하면 read-only 모드로 변경됩니다.
 - 아래로 스크롤하여 다른 성과를 불러올 수 있습니다.
 - 협업툴에서 불러온 정보를 drag and drop 하여 chip 형태로 참조할 수 있습니다.
+
+### 3.2.5 AI 기반 성과 평가
+- 성과를 선택하고 해당 성과 하단에 AI 로 평가 초안 생성하기 버튼을 클릭합니다.
+- AI가 분석-평가-리포트 3단계에 거쳐 평가를 진행합니다.
+- 기술적 우수성 / 임팩트 및 가치 / 코드 품질 / 협업 품질 4가지 항목에 대한 점수와 종합 점수를 제공합니다.
+- 본인 코드에서 우수한 점과 아쉬운 점을 키워드로 제공합니다.
 
 
 ## 3.3. 기능명세서
@@ -293,6 +346,61 @@ GitHub, Jira, Slack 등 다양한 협업툴과의 OAuth 연동
 | PM-008 | 성과 삭제 | 확인 후 성과 항목 삭제 | Medium |
 | PM-009 | 성과 검색 | 제목, 내용 기반 검색 기능 | Low |
 | PM-010 | 성과 필터링 | 기간, 태그, 상태별 필터 | Low |
+
+### 3.3.5 AI 기반 성과 평가 (Performance Evaluation)
+
+#### 3.3.5.1 기능 개요
+AI를 활용하여 사용자의 성과 데이터를 종합적으로 분석하고 평가하는 시스템
+
+#### 3.3.5.2 상세 기능
+| 기능ID | 기능명 | 상세 설명 | 우선순위 |
+|--------|--------|-----------|----------|
+| PE-001 | 성과 평가 요청 처리 | 특정 성과에 대한 AI 평가 요청 접수 | High |
+| PE-002 | 참조 데이터 분석 | GitHub PR, 커밋 등 협업툴 데이터 상세 분석 | High |
+| PE-003 | MCP GitHub 도구 연동 | GitHub MCP 서버를 통한 PR diff 정보 수집 | High |
+| PE-004 | 다단계 AI 평가 | Claude + o1-mini + GPT-4o를 활용한 3단계 평가 | High |
+| PE-005 | 기술적 우수성 평가 | 코드 품질, 아키텍처, 기술적 난이도 평가 | High |
+| PE-006 | 임팩트 및 가치 평가 | 비즈니스 임팩트와 기술적 기여도 평가 | High |
+| PE-007 | 코드 품질 평가 | 유지보수성, 가독성, 테스트 커버리지 평가 | High |
+| PE-008 | 협업 품질 평가 | 커뮤니케이션, 팀워크, 코드리뷰 참여도 평가 | High |
+| PE-009 | 종합 점수 산출 | 각 평가 항목의 가중평균을 통한 종합 점수 계산 | Medium |
+| PE-010 | 개선 추천사항 생성 | AI 기반 개인화된 개선 방안 제시 | Medium |
+| PE-011 | 평가 결과 저장 | 평가 결과를 구조화된 형태로 저장 | Medium |
+| PE-012 | 평가 이력 관리 | 과거 평가 결과와의 비교 분석 | Low |
+
+#### 3.3.5.3 AI 모델 구성
+- **1단계 (분석)**: Claude 3.5 Sonnet - GitHub diff 데이터 상세 분석
+- **2단계 (평가)**: OpenAI o1-mini - 정량적 성과 평가 및 점수 산출
+- **3단계 (리포트)**: GPT-4o - 종합 요약 및 추천사항 생성
+
+#### 3.3.5.4 평가 지표
+- **기술적 우수성 (1-10점)**: 코드 복잡도, 아키텍처 설계, 기술적 혁신성
+- **임팩트 및 가치 (1-10점)**: 비즈니스 기여도, 사용자 경험 개선, 성능 최적화
+- **코드 품질 (1-10점)**: 유지보수성, 가독성, 테스트 커버리지
+- **협업 품질 (1-10점)**: 커뮤니케이션, 코드리뷰 참여, 지식 공유
+
+#### 3.3.5.5 입력/출력 명세
+- **입력**: 
+  - 성과 ID (performanceId)
+  - 사용자 인증 정보 (userId)
+  - GitHub 연동 토큰 (자동 조회)
+- **출력**: 
+  - 종합 평가 점수 (1-10점)
+  - 세부 평가 항목별 점수 및 분석
+  - 개선 추천사항 목록
+  - 평가 요약 및 강점/약점 분석
+
+#### 3.3.5.6 기술적 요구사항
+- **MCP 연동**: GitHub MCP 서버를 통한 실시간 PR diff 데이터 수집
+- **다중 AI 모델**: 각 단계별 최적화된 AI 모델 활용
+- **JSON 구조화**: 평가 결과의 일관된 데이터 구조 보장
+- **에러 처리**: GitHub 데이터 수집 실패 시 기본 정보 기반 평가 수행
+
+#### 3.3.5.7 제약사항 및 고려사항
+- GitHub 연동이 필수적으로 요구됨
+- AI 모델 API 호출 비용 및 속도 제한 고려
+- 평가 결과의 객관성 및 일관성 보장 필요
+- 개인정보 보호를 위한 데이터 처리 방침 준수
 
 ## 3.4. 디렉토리 구조
 ```
